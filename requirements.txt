@@ -2,3 +2,5 @@ tensorflow
 numpy
 flask
 keras
+flask-sqlalchemy
+pillow
