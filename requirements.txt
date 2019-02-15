@@ -1,6 +1,13 @@
 tensorflow
+sqlalchemy
 numpy
+Pillow
 flask
 keras
+flask_restplus
 flask-sqlalchemy
-pillow
+flask-migrate
+flask_restful_swagger
+requests
+psycopg2-binary
+flask-cors
