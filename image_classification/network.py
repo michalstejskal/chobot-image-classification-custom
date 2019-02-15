@@ -2,17 +2,26 @@ import scripts.retrain
 import tensorflow as tf
 from argparse import Namespace
 import numpy as np
+import zipfile
 
 import logging
 from config.config import tf_files_path
 
 
-def train_model():
+def train_model(image_path):
+    print('training model started')
+    custom_path = image_path.replace('.zip','')
+    custom_path = image_path[0:image_path.rfind('/')]
+    zip_ref = zipfile.ZipFile(image_path, 'r')
+    zip_ref.extractall(custom_path)
+    zip_ref.close()
+
+
     logging.info('Start model training')
     args = {'architecture': 'mobilenet_1.0_224',
             'bottleneck_dir': tf_files_path + '/tf_files/bottlenecks', 'eval_step_interval': 10,
             'final_tensor_name': 'final_result', 'flip_left_right': False, 'how_many_training_steps': 500,
-            'image_dir': '/Users/michalstejskal/Desktop/tmp/chobot_data/poets/tf_files/flower_photos',
+            'image_dir': image_path.replace('.zip',''),
             'intermediate_output_graphs_dir': '/tmp/intermediate_graph/', 'intermediate_store_frequency': 0,
             'learning_rate': 0.01, 'model_dir': tf_files_path + '/tf_files/models/',
             'output_graph': tf_files_path + '/tf_files/retrained_graph.pb',
