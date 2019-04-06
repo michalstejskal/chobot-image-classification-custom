@@ -1,39 +1,103 @@
+import datetime
 import io
-# import logging
-from flask import Flask, jsonify, request
+import json
+import os
+import time
+
+import requests
 from PIL import Image
-# from config.config import logs_path
+from flask import abort
+from flask import jsonify, request
+from flask_restful_swagger import swagger
+from werkzeug.datastructures import FileStorage
+from flask_restplus import Resource
+from network_model import predict, load_trained_model
+from api_security import require_appkey
+from bo.network_dao import get_network
+from configuration.app_config import app, ns, api, api_port, debug_server
 
-from network import load_model, predict, train_model
 
-app = Flask(__name__)
+@ns.route('/swagger2.json')
+class ApiDocsController(Resource):
+    '''Return swagger docs json'''
+
+    def get(self):
+        with app.app_context():
+            schema = api.__schema__
+            schema['basePath'] = os.environ['API_URI']
+            return jsonify(schema)
 
 
-@app.route("/predict", methods=["POST"])
-def predict_image():
-    data = {"success": False}
-    # ensure an image was properly uploaded to our endpoint
-    if request.method == "POST":
-        if request.files.get("image"):
-            # read the image in PIL format
-            image = request.files["image"].read()
-            image = Image.open(io.BytesIO(image))
+@ns.route('/healtz')
+class HealthController(Resource):
+    '''Check if app is running and know its id'''
 
-            # data = predict(image)
+    @swagger.operation()
+    def get(self):
+        network = get_network(network_id)
+        if network is not None:
+            return jsonify("true")
+
+
+@ns.route('/network/predict')
+class NetworkController(Resource):
+    '''Classify based on user input'''
+
+    post_parser = api.parser()
+    post_parser.add_argument('Authorization', type=str, location='headers', required=True)
+    post_parser.add_argument('data', type=FileStorage, location='files')
+
+    @api.expect(post_parser, validate=True)
+    @require_appkey
+    def post(self):
+        data = {"success": False}
+
+        input_data, additional_data = self.get_request_data(request)
+        if input_data is not None:
+            data = predict(input_data, additional_data)
+            ts = time.time()
+            data['timestamp'] = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
             data["success"] = True
-    return jsonify(data)
+            data["main_class"] = data['predictions'][0]
+            main_label = data["main_class"]
+
+            network = get_network(network_id)
+            data = self.call_modules(network, main_label, data, requests.Session())
+        else:
+            abort(400)
+
+        return jsonify(data)
+
+    def get_request_data(self, request):
+        if request.files.get("data"):
+            image = request.files["data"].read()
+            image = Image.open(io.BytesIO(image))
+            return image, None
+        return None, None
+
+    def call_modules(self, network, main_label, data, session):
+        for module in network.modules:
+            if module.response_class == main_label and module.status == 4:
+                headers = {"Authorization": module.api_key, 'Content-Type': 'application/json'}
+                module_data = {}
+                module_data['context_data'] = data
+                module_data['original_request'] = data['user_request']
+
+                response = session.post('http://' + module.connection_uri_internal, json=module_data, headers=headers)
+                data['module_response'] = json.loads(response.content.decode("utf-8"))
+        return data
 
 
-# def setup_logging():
-#     logging.basicConfig(filename=logs_path + '/image_classificator_core_custom.log', level=logging.INFO)
+def configure_network():
+    global network_id
+    network_id = os.environ['NETWORK_ID']
+    network = get_network(network_id)
+    load_trained_model(network)
 
 
 if __name__ == "__main__":
-    # print('start api')
-    train_model('/Users/michalstejskal/Desktop/tmp/chobot_train_data/stejskys-images-custom-3/flower_photos.zip')
-    # setup_logging()
-    load_model()
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    configure_network()
+    app.run(debug=debug_server, host="0.0.0.0", port=api_port)
 
 # curl -X POST -F image=@dog.jpg 'http://localhost:5000/predict'
 
