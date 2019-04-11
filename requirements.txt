@@ -11,3 +11,5 @@ flask_restful_swagger
 requests
 psycopg2-binary
 flask-cors
+flask_bcrypt
+pyjwt
