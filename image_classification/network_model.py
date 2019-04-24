@@ -68,16 +68,15 @@ def load_trained_model(network):
 
     if not is_trained:
         train_model(train_data_path)
-    try:
-        global global_graph
-        global_graph = load_graph(tf_files_path + '/tf_files/retrained_graph.pb')
-        print('Model loaded')
 
-        global global_labels
-        global_labels = load_labels(
-            tf_files_path + '/tf_files/retrained_labels.txt')  # except FileNotFoundError:  #     print('Model or labels file not found')
-    except FileNotFoundError:
-        print('Model or labels file not found')
+
+    global global_graph
+    global_graph = load_graph(tf_files_path + '/tf_files/retrained_graph.pb')
+    print('Model loaded')
+
+    global global_labels
+    global_labels = load_labels(
+        tf_files_path + '/tf_files/retrained_labels.txt')  # except FileNotFoundError:  #     print('Model or labels file not found')
 
 def check_if_trained(network):
     trained = False
