@@ -1,5 +1,5 @@
 **Chobot project image classification model with API**  
-Model for image classification custom trainening
+Model for image classification custom training
 
 **Push to local Docker registry**  
 ```
